@@ -19,7 +19,7 @@ def plot_data(data, labels=None):
 
 def plot_frontiere(data, f, step=20, alpha_c=1):
     """
-    Plot boundary classification
+    Plot classification boundary
     """
 
     grid, x, y = make_grid(data=data, step=step)

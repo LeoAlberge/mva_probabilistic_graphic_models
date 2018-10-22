@@ -3,6 +3,9 @@ import matplotlib.pyplot as plt
 from tools import *
 
 
+np.seterr(over='raise')
+
+
 class Model:
     """Abstract class implementing methods common to all models"""
 
@@ -48,10 +51,10 @@ class LDA(Model):
 
     def predict_proba(self, X):
         """
-        Infers the probability to belong to class 1 for each point in a given dataset
+        Infer the probability to belong to class 1 for each point in a given dataset
         """
 
-        # this disjunction allows to ?????
+        # this disjunction allows to predict the probability of a single or several samples
         if X.ndim != 1:
             logp1 = np.log(self.pi) \
                     - 0.5 * np.apply_along_axis(lambda x: (x - self.mu1).dot(self.sigma_inv).dot((x - self.mu1).T),
@@ -87,7 +90,7 @@ class LDA(Model):
 
 
 def sigmoid(x):
-    return 1 / (1 + np.exp(-x))
+    return 1 / (1 + np.exp(-np.maximum(x, -100))) # prevent overflow
 
 
 class LogisticRegression(Model):
@@ -98,14 +101,19 @@ class LogisticRegression(Model):
     model_name = 'Logistic regression'
 
     def fit(self, X, Y, eps=1e-5):
-        # Adding offset for the bias
+        """
+        Compute the optimal weights for a given dataset
+        """
+        
+        # add an offset for the bias term
         offset = np.ones(X.shape[0])
         offset = offset.reshape(-1, 1)
-        X = np.hstack((offset, X))
+        X = np.hstack((offset, X)) 
 
         p = X.shape[1]
         w = np.zeros(p)
 
+        # iterative reweighted least squares
         convergence = False
         while not convergence:
             eta = sigmoid(X.dot(w))
@@ -122,71 +130,99 @@ class LogisticRegression(Model):
         return w
 
     def predict_proba(self, X):
-        # Adding offset for the bias
+        """
+        Compute the probability to belong to class 1 for each point in a given dataset
+        """
+        
+        # add an offset for the bias term
         offset = np.ones(X.shape[0])
         offset = offset.reshape(-1, 1)
         X = np.hstack((offset, X))
 
-        # We check the matrix dimensions to be compatible
-        assert (X.shape[-1] == self.w.shape[0])
-
         return sigmoid(np.dot(X, self.w))
 
     def predict(self, X):
+        """
+        Classify each point in a given dataset
+        """
+        
         return self.predict_proba(X) > 0.5
 
 
 class LinearRegression(Model):
+    """
+    Linear regression model class
+    """
+    
     model_name = 'Linear Regression'
-    def fit(self,X,Y):
-        #we add a column of ones for the offset
+    
+    def fit(self, X, Y):
+        """
+        Compute the optimal weights for a given dataset
+        """
+        
+        # add an offset for the bias term
         offset = np.ones(X.shape[0])
-        offset=offset.reshape(-1,1)
-        X=np.hstack((offset,X))
+        offset = offset.reshape(-1, 1)
+        X = np.hstack((offset, X))
+        
         w =  np.linalg.inv(X.T.dot(X)).dot(X.T).dot(Y)
         self.w = w
+        
         return w
 
     def predict_proba(self,X, w=None):
+        """
+        Compute the scalar on which the classification decision is based
+        """
+        
         if w is None:
             w = self.w
-        #we add a column of ones for the offset
+            
+        # add an offset for the bias term
         offset = np.ones(X.shape[0])
-        offset=offset.reshape(-1,1)
-        X=np.hstack((offset,X))
-        #We check the matrix dimensions to be compatible
-        assert(X.shape[-1]==w.shape[0])
-
+        offset = offset.reshape(-1, 1)
+        X = np.hstack((offset, X))
+        
         return X.dot(w)
 
     def predict(self,X, w=None):
+        """
+        Classify each point in a given dataset
+        """
+        
         if w is None:
             w = self.w
-        return self.predict_proba(X,w)>0.5
+        
+        return self.predict_proba(X,w) > 0.5
 
 
 class QDA(Model):
     """
-    Class for the QDA Model.
-    We fit it with the analytical formula for the maximum log-likelihood.
+    QDA model class
     """
+    
     model_name = 'QDA'
 
     def fit(self, X, y):
-        # Sample size and number of positive samples to compute prior pi
+        """
+        Compute maximum likelihood estimators for a given dataset
+        """
+        
+        # number of samples (total and positive ones)
         n = y.shape[0]
         Ny = np.sum(y == 1)
 
         self.pi = Ny / n
 
-        # Compute empiric mean and covariance
+        # compute empiric mean and covariance
         self.mu0 = np.mean(X[y == 0], axis=0)
         self.mu1 = np.mean(X[y == 1], axis=0)
 
         self.sigma_0 = (X[y == 0] - self.mu0).T.dot((X[y == 0] - self.mu0)) / (n - Ny)
         self.sigma_1 = (X[y == 1] - self.mu1).T.dot((X[y == 1] - self.mu1)) / Ny
 
-        # Save inverse matrices and det
+        # save inverse matrices and det
         self.sigma0_inv = np.linalg.inv(self.sigma_0)
         self.sigma1_inv = np.linalg.inv(self.sigma_1)
 
@@ -194,23 +230,33 @@ class QDA(Model):
         self.sigma1_det = np.linalg.det(self.sigma_1)
 
     def predict_proba(self, X):
-        # Predict proba for samples
+        """
+        Infer the probability to belong to class 1 for each point in a given dataset
+        """
+        
+        # this disjunction allows to predict the probability of a single or several samples
         if X.ndim != 1:
-            logp1 = np.log(self.pi) - 0.5 * np.log(self.sigma1_det) - 0.5 * np.apply_along_axis(
-                lambda x: (x - self.mu1).dot(self.sigma1_inv).dot((x - self.mu1).T), arr=X, axis=1)
-            logp0 = np.log(1 - self.pi) - 0.5 * np.log(self.sigma0_det) - 0.5 * np.apply_along_axis(
-                lambda x: (x - self.mu0).dot(self.sigma0_inv).dot((x - self.mu0).T), arr=X, axis=1)
+            logp1 = np.log(self.pi) - 0.5 * np.log(self.sigma1_det) \
+                    - 0.5 * np.apply_along_axis(lambda x: (x - self.mu1).dot(self.sigma1_inv).dot((x - self.mu1).T),
+                                                arr=X, 
+                                                axis=1)
+            
+            logp0 = np.log(1 - self.pi) - 0.5 * np.log(self.sigma0_det) \
+                    - 0.5 * np.apply_along_axis(lambda x: (x - self.mu0).dot(self.sigma0_inv).dot((x - self.mu0).T),
+                                                arr=X,
+                                                axis=1)
 
             p1 = np.exp(logp1)
             p0 = np.exp(logp0)
 
             p1 = p1 / (p0 + p1)
-        # Predict proba for a sample
+            
         else:
-            logp1 = np.log(self.pi) - 0.5 * np.log(self.sigma1_det) - 0.5 * (X - self.mu1).dot(self.sigma1_inv).dot(
-                (X - self.mu1).T)
-            logp0 = np.log((1 - self.pi)) - 0.5 * np.log(self.sigma0_det) - 0.5 * (X - self.mu0).dot(
-                self.sigma0_inv).dot((X - self.mu0).T)
+            logp1 = np.log(self.pi) - 0.5 * np.log(self.sigma1_det) \
+                    - 0.5 * (X - self.mu1).dot(self.sigma1_inv).dot((X - self.mu1).T)
+            
+            logp0 = np.log((1 - self.pi)) - 0.5 * np.log(self.sigma0_det) \
+                    - 0.5 * (X - self.mu0).dot(self.sigma0_inv).dot((X - self.mu0).T)
 
             p1 = np.exp(logp1)
             p0 = np.exp(logp0)
@@ -220,5 +266,8 @@ class QDA(Model):
         return p1
 
     def predict(self, X):
-        # Assign to class 1 if the probability of the class 1 is greater than 0.5
+        """
+        Classify each point in a given dataset
+        """
+        
         return self.predict_proba(X) > 0.5
