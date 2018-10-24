@@ -17,9 +17,9 @@ def plot_data(data, labels=None):
         plt.scatter(data[labels == l, 0], data[labels == l, 1], c=cols[i], marker=marks[i])
 
 
-def plot_frontiere(data, f, step=20, alpha_c=1):
+def plot_boundary(data, f, step=20, alpha_c=1):
     """
-    Plot classification boundary
+    Plot the boundary associated to a binary valued function f
     """
 
     grid, x, y = make_grid(data=data, step=step)

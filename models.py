@@ -13,11 +13,11 @@ class Model:
         y_pred = self.predict(X)
         return np.sum(y_pred != y) / y.shape[0]
 
-    def plot_data_frontiere(self, X, y, c=0.01, step=100):
+    def plot_classification_boundary(self, X, y, c=0.01, step=500):
         plt.figure(figsize=(10, 10))
         self.fit(X, y)
         plot_data(X, y)
-        plot_frontiere(X, self.predict, step, alpha_c=0.1)
+        plot_boundary(X, self.predict, step, alpha_c=0.1)
         plt.title(self.model_name)
 
 
@@ -154,7 +154,7 @@ class LinearRegression(Model):
     Linear regression model class
     """
     
-    model_name = 'Linear Regression'
+    model_name = 'Linear regression'
     
     def fit(self, X, Y):
         """
