@@ -1,1 +1,3 @@
-# pgm-tp1-linearclassification
+# PGM homeworks <br/>
+
+Léo Alberge, Romain Petit
