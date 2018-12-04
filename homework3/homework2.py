@@ -12,7 +12,7 @@ def Jfunc(X, mu, z, k):
     return J
 
 
-def kmeans(X, k, eps, display='all', timing=0.4):
+def kmeans(X, k, eps):
     
     # initialization
     mu = X[np.random.randint(0, X.shape[0],k), :]
@@ -28,26 +28,18 @@ def kmeans(X, k, eps, display='all', timing=0.4):
         for i in range(0,k):
             mu[i, :] = X[z==i].mean(axis=0)
             
-        if display == 'all':
-            ax.scatter(x=mu[:, 0], y=mu[:, 1], c='black', marker='X')
-            fig.canvas.draw()  # draw
-            time.sleep(timing) 
-            
         #convergence evaluation
-        if np.abs(j - Jfunc(X, mu, z, k))<eps:
+        if np.abs(j - Jfunc(X, mu, z, k)) < eps:
             convergence = True
         else:
             j = Jfunc(X, mu, z, k)
-        
-        if display == 'all':
-            fig.canvas.set_window_title('J: {}'.format(j))
     
     return mu, z
 
 
 class GaussianMixture():
     
-    def __init__(self, X, k, covariance_mode, eps=10e-3, n_itermax=1000, display='all', timing=0.1):
+    def __init__(self, X, k, covariance_mode, eps=1e-3, n_itermax=1000):
         
         # input parameters
         self.X = X
@@ -58,7 +50,7 @@ class GaussianMixture():
         
         
         # kmeans initialization
-        mu, tau = kmeans(X, k, 0.1, display=None)
+        mu, tau = kmeans(X, k, 0.1)
        
         self.tau = np.zeros(pd.get_dummies(tau).values.shape)
 
@@ -71,6 +63,7 @@ class GaussianMixture():
             self.sigmas = np.ones((k, self.X.shape[1], self.X.shape[1]))
             for j in range(self.k):
                 self.sigmas[j] = np.eye(self.X.shape[1])
+                
         self.pis = np.ones(k)/k
         
     def predict(self, X):
@@ -83,10 +76,9 @@ class GaussianMixture():
         self.tau = self.tau / self.tau.sum(axis=1).reshape(-1, 1)
         return np.argmax(self.tau, axis=1)
             
-    def fit(self,verbose=False, display=None):
+    def fit(self,verbose=False):
         loglikold = -np.inf
         for i in range(self.n_itermax):
-            ## e-step
             for j in range(self.k):
                 self.tau[:, j] = self.pis[j] * multivariate_normal.pdf(self.X, 
                                                                    mean=self.mus[:, j], 
@@ -96,7 +88,8 @@ class GaussianMixture():
             loglik = 0
             for j in range(self.k):
                 log_pdf = multivariate_normal.logpdf(self.X, mean=self.mus[:, j], cov=self.sigmas[j])
-                loglik +=((self.tau[:,j]* log_pdf).sum() + self.tau[:,j].sum()* np.log(self.pis[j]))-(self.tau[:,j]*np.log(self.tau[:,j])).sum()
+                loglik += (self.tau[:,j] * log_pdf).sum() + self.tau[:,j].sum() * np.log(self.pis[j])
+                loglik -= (self.tau[:,j] * np.log(self.tau[:,j])).sum()
             if verbose:
                 print(loglik)
             if loglik < loglikold - self.eps:
@@ -123,7 +116,10 @@ class GaussianMixture():
                 
     def jfunc(self):
         loglik = 0
+        
         for j in range(self.k):
             log_pdf = multivariate_normal.logpdf(self.X, mean=self.mus[:, j], cov=self.sigmas[j])
-            loglik +=((self.tau[:,j]* log_pdf).sum() + self.tau[:,j].sum()* np.log(self.pis[j]))-(self.tau[:,j]*np.log(self.tau[:,j])).sum()
+            loglik += (self.tau[:,j]* log_pdf).sum() + self.tau[:,j].sum() * np.log(self.pis[j])
+            loglik -= (self.tau[:,j]*np.log(self.tau[:,j])).sum()
+            
         return loglik
