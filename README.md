@@ -1,3 +1,3 @@
-# PGM homeworks <br/>
+# Probabilistic graphical models homeworks (MVA course) <br/>
 
 Léo Alberge, Romain Petit
